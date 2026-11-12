@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>くりあがり たしざん シューティング！</title>
+  <style>
+    /* 全体リセット & フォント設定 */
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at center, #1c1538 0%, #070714 100%);
+      font-family: 'Hiragino Maru Gothic ProN', 'BIZ UDPGothic', 'Rounded Mplus 1c', sans-serif;
+      color: #ffffff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+    }
+
+    /* ゲームのメインフレーム */
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 580px;
+      height: 100%;
+      max-height: 880px;
+      display: flex;
+      flex-direction: column;
+      background: #0d0f28;
+      border-radius: 16px;
+      box-shadow: 0 0 35px rgba(112, 161, 255, 0.25);
+      overflow: hidden;
+    }
+
+    /* 上部ステータスバー */
+    #top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: rgba(13, 15, 40, 0.95);
+      border-bottom: 2px solid #282d56;
+      z-index: 10;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-val {
+      color: #fffa65;
+      font-size: 20px;
+      text-shadow: 0 0 8px rgba(255, 250, 101, 0.6);
+    }
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+    .icon-btn {
+      background: #1e244d;
+      border: 2px solid #4a5496;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .icon-btn:active {
+      transform: scale(0.94);
+      background: #364082;
+    }
+    .hint-btn-style {
+      background: #b33939;
+      border-color: #ff6b81;
+    }
+
+    /* 問題カード表示エリア */
+    #question-card {
+      background: linear-gradient(135deg, #1e1b4b, #2e266d);
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 3px solid #ffde59;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+      z-index: 9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #question-title {
+      font-size: 13px;
+      color: #93c5fd;
+      margin-bottom: 3px;
+      letter-spacing: 0.5px;
+    }
+    #question-text {
+      font-size: 38px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 3px 0 #0f0e26, 0 0 16px rgba(255, 255, 255, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      line-height: 1.1;
+    }
+    .q-num {
+      color: #fffa65;
+    }
+    .q-op {
+      color: #ff6b81;
+      font-size: 30px;
+    }
+    .q-ans {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 58px;
+      height: 46px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      border: 3px dashed #ffde59;
+      color: #ffde59;
+      animation: blinkBorder 1.2s infinite ease-in-out;
+    }
+    @keyframes blinkBorder {
+      0%, 100% { border-color: #ffde59; box-shadow: 0 0 8px rgba(255, 222, 89, 0.5); }
+      50% { border-color: #ff9f43; box-shadow: 0 0 2px rgba(255, 159, 67, 0.2); }
+    }
+
+    /* キャンバス領域 */
+    #canvas-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* さくらんぼ計算ヒントダイアログ */
+    #hint-overlay {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(18, 14, 42, 0.96);
+      border: 3px solid #ff9f43;
+      border-radius: 20px;
+      padding: 14px 18px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      z-index: 25;
+      width: 92%;
+      max-width: 480px;
+      display: none;
+      animation: popIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    @keyframes popIn {
+      0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
+      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+    #hint-overlay h3 {
+      margin: 0 0 8px 0;
+      color: #ff9f43;
+      font-size: 17px;
+    }
+
+    /* 教科書風 さくらんぼ計算ビジュアル図 */
+    .sakuranbo-visual-container {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin: 8px 0;
+    }
+    .sakuranbo-formula-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 26px;
+      font-weight: bold;
+      gap: 12px;
+    }
+    .sakuranbo-branch-svg {
+      display: block;
+      margin: 0 auto;
+      width: 140px;
+      height: 40px;
+    }
+    .sakuranbo-split-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+      margin-bottom: 8px;
+    }
+    .sakuranbo-ball {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    }
+    .bg-green { background: #2ed573; border: 2px solid #7bed9f; }
+    .bg-blue  { background: #1e90ff; border: 2px solid #70a1ff; }
+
+    .hint-step-box {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #f1f2f6;
+      margin: 6px 0;
+    }
+    .hint-step-box strong {
+      color: #fffa65;
+    }
+    .hint-close-btn {
+      margin-top: 8px;
+      background: linear-gradient(180deg, #ff9f43, #ee5253);
+      border: none;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: bold;
+      padding: 8px 24px;
+      border-radius: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(255, 159, 67, 0.4);
+    }
+    .hint-close-btn:active {
+      transform: translateY(2px);
+    }
+
+    /* 下部操作パネル */
+    #bottom-controls {
+      background: rgba(13, 15, 40, 0.98);
+      border-top: 2px solid #282d56;
+      padding: 8px 10px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    /* クイック数字ボタン（11〜18） */
+    #quick-numbers-label {
+      font-size: 12px;
+      color: #93c5fd;
+      text-align: center;
+      font-weight: bold;
+    }
+    #quick-numbers {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+    }
+    .num-btn {
+      background: linear-gradient(180deg, #3742fa, #222f3e);
+      border: 2px solid #70a1ff;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 9px 0;
+      cursor: pointer;
+      box-shadow: 0 3px 0 #101524;
+      transition: transform 0.08s, background 0.08s;
+      outline: none;
+    }
+    .num-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 0 0 #101524;
+      background: #70a1ff;
+    }
+
+    /* 自機移動 & 発射ボタン */
+    #action-controls {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 12px 0;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+      outline: none;
+      transition: transform 0.08s;
+    }
+    .action-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    }
+    #btn-left {
+      flex: 1;
+      background: linear-gradient(180deg, #5352ed, #3742fa);
+      border-bottom: 3px solid #1e244d;
+    }
+    #btn-shoot {
+      flex: 1.5;
+      background: linear-gradient(180deg, #ff4757, #ff6b81);
+      border-bottom: 3px solid #b33939;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+    }
+    #btn-right {
+      flex: 1;
+      background: linear-gradient(180deg, #5352ed, #3742fa);
+      border-bottom: 3px solid #1e244d;
+    }
+
+    /* モーダル共通画面 */
+    .screen-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(8, 9, 24, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+      text-align: center;
+      backdrop-filter: blur(5px);
+    }
+    .modal-title {
+      font-size: 30px;
+      color: #fffa65;
+      margin-bottom: 6px;
+      text-shadow: 0 0 16px rgba(255, 250, 101, 0.8), 0 3px 0 #eb4d4b;
+      line-height: 1.25;
+    }
+    .modal-subtitle {
+      font-size: 15px;
+      color: #cbd5e1;
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+    .mode-select-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .mode-btn {
+      padding: 14px 18px;
+      border-radius: 16px;
+      border: 3px solid #fffa65;
+      font-size: 18px;
+      font-weight: bold;
+      color: #ffffff;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      outline: none;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    }
+    .mode-btn:hover {
+      transform: translateY(-2px);
+    }
+    .mode-btn:active {
+      transform: translateY(2px);
+    }
+    .mode-btn span {
+      font-size: 13px;
+      font-weight: normal;
+      opacity: 0.9;
+    }
+    .btn-easy {
+      background: linear-gradient(135deg, #10ac84, #1dd1a1);
+      border-color: #55efc4;
+    }
+    .btn-normal {
+      background: linear-gradient(135deg, #2e86de, #54a0ff);
+      border-color: #70a1ff;
+    }
+    .btn-challenge {
+      background: linear-gradient(135deg, #ee5253, #ff6b6b);
+      border-color: #ff9ff3;
+    }
+
+    /* トーストメッセージ（せいかい！など） */
+    #toast-msg {
+      position: absolute;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      font-size: 32px;
+      font-weight: 900;
+      color: #fffa65;
+      text-shadow: 0 0 16px rgba(255, 250, 101, 0.9), 0 3px 0 #d63031;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 50;
+      transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s;
+      white-space: nowrap;
+    }
+    #toast-msg.show {
+      transform: translate(-50%, -50%) scale(1.15);
+      opacity: 1;
+    }
+
+    /* 結果画面 */
+    .medal-icon {
+      font-size: 72px;
+      margin-bottom: 8px;
+      animation: floatMedal 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes floatMedal {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+    .result-score-box {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 14px 20px;
+      margin-bottom: 18px;
+      width: 100%;
+      max-width: 320px;
+      font-size: 17px;
+    }
+    .result-score-num {
+      font-size: 38px;
+      color: #fffa65;
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- 上部ステータスバー -->
+  <div id="top-bar">
+    <div class="status-item">
+      <span>てんすう:</span>
+      <span id="score-display" class="status-val">0</span>
+    </div>
+    <div class="status-item">
+      <span id="mode-progress-label">もんだい:</span>
+      <span id="progress-display" class="status-val">1/10</span>
+    </div>
+    <div class="btn-group">
+      <button id="sound-btn" class="icon-btn" title="おんがく・おと">
+        <span id="sound-icon">🔊</span> おと
+      </button>
+      <button id="hint-toggle-btn" class="icon-btn hint-btn-style" title="ヒント">
+        💡 ヒント
+      </button>
+    </div>
+  </div>
+
+  <!-- 問題表示カード -->
+  <div id="question-card">
+    <div id="question-title">こたえの UFO を ねらいうて！</div>
+    <div id="question-text">
+      <span id="q-first" class="q-num">8</span>
+      <span class="q-op">＋</span>
+      <span id="q-second" class="q-num">5</span>
+      <span class="q-op">＝</span>
+      <span id="q-ans" class="q-ans">？</span>
+    </div>
+  </div>
+
+  <!-- さくらんぼ計算ヒントのポップアップ -->
+  <div id="hint-overlay">
+    <h3>🍒 さくらんぼけいさんの ヒント 🍒</h3>
+    
+    <div class="sakuranbo-visual-container">
+      <div class="sakuranbo-formula-row">
+        <span id="hint-formula-left" class="q-num" style="color:#fffa65;">8</span>
+        <span class="q-op" style="font-size:22px;">＋</span>
+        <span id="hint-formula-right" class="q-num" style="color:#70a1ff;">5</span>
+      </div>
+      <!-- さくらんぼの枝 (SVG) -->
+      <svg class="sakuranbo-branch-svg" viewBox="0 0 140 40">
+        <!-- 右の数字から2本の枝が伸びる -->
+        <line x1="88" y1="2" x2="40" y2="38" stroke="#ff9f43" stroke-width="4" stroke-linecap="round" />
+        <line x1="88" y1="2" x2="105" y2="38" stroke="#ff9f43" stroke-width="4" stroke-linecap="round" />
+      </svg>
+      <!-- 分解されたさくらんぼの実 -->
+      <div class="sakuranbo-split-row">
+        <div id="sakuranbo-left-val" class="sakuranbo-ball bg-green">2</div>
+        <div id="sakuranbo-right-val" class="sakuranbo-ball bg-blue">3</div>
+      </div>
+    </div>
+
+    <div id="hint-step-1" class="hint-step-box">
+      <!-- 例: 8 は あと 2 で 10！ -->
+    </div>
+    <div id="hint-step-2" class="hint-step-box">
+      <!-- 例: 10 と 3 で 13！ -->
+    </div>
+
+    <button id="hint-close-btn" class="hint-close-btn">わかった！ 🚀</button>
+  </div>
+
+  <!-- ゲームキャンバス（宇宙空間・UFO・自機・ビーム） -->
+  <div id="canvas-wrapper">
+    <canvas id="game-canvas"></canvas>
+    <div id="toast-msg">せいかい！★</div>
+  </div>
+
+  <!-- 下部操作パネル -->
+  <div id="bottom-controls">
+    <div id="quick-numbers-label">
+      すうじを タップしても たまが うてるよ！
+    </div>
+    <div id="quick-numbers">
+      <button class="num-btn" data-val="11">11</button>
+      <button class="num-btn" data-val="12">12</button>
+      <button class="num-btn" data-val="13">13</button>
+      <button class="num-btn" data-val="14">14</button>
+      <button class="num-btn" data-val="15">15</button>
+      <button class="num-btn" data-val="16">16</button>
+      <button class="num-btn" data-val="17">17</button>
+      <button class="num-btn" data-val="18">18</button>
+    </div>
+
+    <!-- 移動・発射ボタン -->
+    <div id="action-controls">
+      <button id="btn-left" class="action-btn">◀ ひだり</button>
+      <button id="btn-shoot" class="action-btn">🚀 たまをうつ！</button>
+      <button id="btn-right" class="action-btn">みぎ ▶</button>
+    </div>
+  </div>
+
+  <!-- タイトル画面モーダル -->
+  <div id="title-screen" class="screen-modal">
+    <div class="modal-title">くりあがり たしざん<br>🚀 シューティング 🌟</div>
+    <div class="modal-subtitle">
+      しょうがっこう １ねんせい むけ！<br>
+      ただしい こたえの UFO を やっつけよう！
+    </div>
+    <div class="mode-select-container">
+      <button id="mode-practice" class="mode-btn btn-easy">
+        🌸 じっくり れんしゅう
+        <span>じかんせいげん なし・ヒントつき</span>
+      </button>
+      <button id="mode-challenge10" class="mode-btn btn-normal">
+        ⭐ 10もん チャレンジ！
+        <span>100てん まんてんを めざそう！</span>
+      </button>
+      <button id="mode-timeattack" class="mode-btn btn-challenge">
+        ⚡ 30びょう アタック！
+        <span>すばやく たくさん たおそう！</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 結果発表画面モーダル -->
+  <div id="result-screen" class="screen-modal" style="display: none;">
+    <div id="result-medal" class="medal-icon">👑</div>
+    <div id="result-title" class="modal-title">たいへん よくできました！</div>
+    <div class="result-score-box">
+      <div>スコア: <span id="final-score" class="result-score-num">0</span> てん</div>
+      <div id="result-detail" style="margin-top: 6px; font-size: 15px; color: #cbd5e1;">せいかい: 10 / 10</div>
+    </div>
+    <div class="mode-select-container">
+      <button id="btn-replay" class="mode-btn btn-normal">
+        🔄 もういちど あそぶ
+      </button>
+      <button id="btn-to-title" class="mode-btn btn-easy">
+        🏠 タイトルへ もどる
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * くりあがり たしざん シューティング
+ * 小学校1年生の繰り上がり計算練習用Webゲーム
+ */
+
+// --- 音声生成管理 (Web Audio API Synthesizer) ---
+class SoundManager {
+  constructor() {
+    this.audioContext = null;
+    this.soundEnabled = true;
+  }
+
+  // ユーザーの初期操作でAudioContextを生成・再開
+  ensureAudioContext() {
+    if (!this.audioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new AudioContextClass();
+    }
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+  }
+
+  toggleSound() {
+    this.soundEnabled = !this.soundEnabled;
+    return this.soundEnabled;
+  }
+
+  // ビーム発射音（ピュン！）
+  playLaserSound() {
+    if (!this.soundEnabled) return;
+    this.ensureAudioContext();
+    const now = this.audioContext.currentTime;
+
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, now);
+    oscillator.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+
+    gainNode.gain.setValueAtTime(0.25, now);
+    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.12);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.13);
+  }
+
+  // 正解音（ド・ミ・ソ・ド↑のファンファーレ和音）
+  playCorrectSound() {
+    if (!this.soundEnabled) return;
+    this.ensureAudioContext();
+    const now = this.audioContext.currentTime;
+    const chordFrequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+    chordFrequencies.forEach((freq, index) => {
+      const oscillator = this.audioContext.createOscillator();
+      const gainNode = this.audioContext.createGain();
+      const startTime = now + index * 0.06;
+
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(freq, startTime);
+
+      gainNode.gain.setValueAtTime(0.22, startTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.28);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.29);
+    });
+  }
+
+  // 不正解音（やさしいポロン音・恐怖感を与えない設計）
+  playMissSound() {
+    if (!this.soundEnabled) return;
+    this.ensureAudioContext();
+    const now = this.audioContext.currentTime;
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(280, now);
+    oscillator.frequency.exponentialRampToValueAtTime(140, now + 0.22);
+
+    gainNode.gain.setValueAtTime(0.2, now);
+    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.22);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.23);
+  }
+
+  // ステージクリア時のメロディ
+  playClearFanfare() {
+    if (!this.soundEnabled) return;
+    this.ensureAudioContext();
+    const now = this.audioContext.currentTime;
+    const melody = [
+      { freq: 523.25, duration: 0.14 }, // ド
+      { freq: 659.25, duration: 0.14 }, // ミ
+      { freq: 783.99, duration: 0.14 }, // ソ
+      { freq: 880.00, duration: 0.16 }, // ラ
+      { freq: 1046.50, duration: 0.45 }  // 高いド
+    ];
+
+    let currentOffset = 0;
+    melody.forEach(note => {
+      const oscillator = this.audioContext.createOscillator();
+      const gainNode = this.audioContext.createGain();
+      const startTime = now + currentOffset;
+
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(note.freq, startTime);
+
+      gainNode.gain.setValueAtTime(0.3, startTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + note.duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + note.duration + 0.05);
+
+      currentOffset += note.duration;
+    });
+  }
+}
+
+// --- 繰り上がり計算問題の生成器 ---
+class MathQuestionGenerator {
+  constructor() {
+    // 繰り上がりのある1桁+1桁（合計が11〜18）の組み合わせプール
+    this.questionPool = [];
+    for (let first = 2; first <= 9; first++) {
+      for (let second = 2; second <= 9; second++) {
+        if (first + second >= 11) {
+          this.questionPool.push({ first, second, answer: first + second });
+        }
+      }
+    }
+  }
+
+  // 問題をランダムに1問生成
+  generateQuestion(previousAnswer = null) {
+    const availablePool = this.questionPool.filter(item => item.answer !== previousAnswer);
+    const selected = availablePool[Math.floor(Math.random() * availablePool.length)];
+
+    // さくらんぼ計算用データ：1つ目の数字を10にするための分解
+    const neededForTen = 10 - selected.first;
+    const remainder = selected.second - neededForTen;
+
+    return {
+      first: selected.first,
+      second: selected.second,
+      answer: selected.answer,
+      neededForTen: neededForTen,
+      remainder: remainder
+    };
+  }
+
+  // 画面に降らせる数字ターゲット（正解1個＋ダミー2個）を生成
+  generateTargets(correctAnswer, targetCount = 3) {
+    const targets = [correctAnswer];
+    const candidateDummies = [
+      correctAnswer - 1,
+      correctAnswer + 1,
+      correctAnswer - 2,
+      correctAnswer + 2,
+      11, 12, 13, 14, 15, 16, 17, 18
+    ].filter(value => value >= 10 && value <= 19 && value !== correctAnswer);
+
+    const shuffledCandidates = candidateDummies.sort(() => 0.5 - Math.random());
+    for (let i = 0; i < targetCount - 1; i++) {
+      if (shuffledCandidates[i] !== undefined) {
+        targets.push(shuffledCandidates[i]);
+      }
+    }
+    return targets.sort(() => 0.5 - Math.random());
+  }
+}
+
+// --- ゲームメイン処理 ---
+class ShootingGame {
+  constructor() {
+    this.canvas = document.getElementById('game-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.soundManager = new SoundManager();
+    this.questionGenerator = new MathQuestionGenerator();
+
+    // DOM要素キャッシュ
+    this.scoreDisplay = document.getElementById('score-display');
+    this.progressDisplay = document.getElementById('progress-display');
+    this.progressLabel = document.getElementById('mode-progress-label');
+    this.qFirst = document.getElementById('q-first');
+    this.qSecond = document.getElementById('q-second');
+    this.qAns = document.getElementById('q-ans');
+    this.toastElement = document.getElementById('toast-msg');
+
+    // ヒントモーダル用DOM
+    this.hintOverlay = document.getElementById('hint-overlay');
+    this.hintFormulaLeft = document.getElementById('hint-formula-left');
+    this.hintFormulaRight = document.getElementById('hint-formula-right');
+    this.sakuranboLeftVal = document.getElementById('sakuranbo-left-val');
+    this.sakuranboRightVal = document.getElementById('sakuranbo-right-val');
+    this.hintStep1 = document.getElementById('hint-step-1');
+    this.hintStep2 = document.getElementById('hint-step-2');
+
+    // ゲーム状態
+    this.gameMode = 'practice'; // 'practice' | 'challenge10' | 'timeattack'
+    this.isGameActive = false;
+    this.score = 0;
+    this.questionCount = 0;
+    this.totalQuestions = 10;
+    this.correctAnswersCount = 0;
+    this.remainingSeconds = 30;
+    this.timerIntervalId = null;
+    this.currentQuestion = null;
+
+    // ゲーム内エンティティ
+    this.playerShip = {
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 48,
+      speed: 7,
+      isMovingLeft: false,
+      isMovingRight: false
+    };
+    this.projectiles = [];
+    this.enemyUfos = [];
+    this.visualParticles = [];
+    this.backgroundStars = [];
+
+    this.resizeCanvas();
+    this.createBackgroundStars();
+    this.bindEvents();
+
+    this.previousFrameTime = performance.now();
+    requestAnimationFrame((timestamp) => this.renderLoop(timestamp));
+  }
+
+  // キャンバスサイズの初期化とレスポンシブ同期
+  resizeCanvas() {
+    const parentBounds = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = parentBounds.width;
+    this.canvas.height = parentBounds.height;
+    this.playerShip.x = this.canvas.width / 2;
+    this.playerShip.y = this.canvas.height - 50;
+  }
+
+  // 背景の星々の初期化
+  createBackgroundStars() {
+    this.backgroundStars = [];
+    for (let i = 0; i < 40; i++) {
+      this.backgroundStars.push({
+        x: Math.random() * this.canvas.width,
+        y: Math.random() * this.canvas.height,
+        radius: Math.random() * 2 + 0.8,
+        fallSpeed: Math.random() * 0.7 + 0.3,
+        color: ['#ffffff', '#fffa65', '#a5b1c2', '#70a1ff'][Math.floor(Math.random() * 4)]
+      });
+    }
+  }
+
+  // イベントリスナーの登録
+  bindEvents() {
+    window.addEventListener('resize', () => this.resizeCanvas());
+
+    // キーボード操作
+    window.addEventListener('keydown', (event) => {
+      if (!this.isGameActive) return;
+      if (event.code === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+        this.playerShip.isMovingLeft = true;
+      }
+      if (event.code === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+        this.playerShip.isMovingRight = true;
+      }
+      if (event.code === 'Space') {
+        event.preventDefault();
+        this.fireLaser();
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.code === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+        this.playerShip.isMovingLeft = false;
+      }
+      if (event.code === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+        this.playerShip.isMovingRight = false;
+      }
+    });
+
+    // キャンバス上のポインター操作（ドラッグ移動 & タップ発射）
+    let isPointerPressed = false;
+    const handlePointerPosition = (clientX) => {
+      const bounds = this.canvas.getBoundingClientRect();
+      const relativeX = clientX - bounds.left;
+      this.playerShip.x = Math.max(30, Math.min(this.canvas.width - 30, relativeX));
+    };
+
+    this.canvas.addEventListener('pointerdown', (event) => {
+      if (!this.isGameActive) return;
+      isPointerPressed = true;
+      handlePointerPosition(event.clientX);
+      this.fireLaser();
+    });
+
+    this.canvas.addEventListener('pointermove', (event) => {
+      if (isPointerPressed && this.isGameActive) {
+        handlePointerPosition(event.clientX);
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isPointerPressed = false;
+    });
+
+    // 画面下部のオンスクリーンボタン
+    const leftButton = document.getElementById('btn-left');
+    const rightButton = document.getElementById('btn-right');
+    const shootButton = document.getElementById('btn-shoot');
+
+    leftButton.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.playerShip.isMovingLeft = true;
+    });
+    leftButton.addEventListener('pointerup', () => { this.playerShip.isMovingLeft = false; });
+    leftButton.addEventListener('pointerleave', () => { this.playerShip.isMovingLeft = false; });
+
+    rightButton.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.playerShip.isMovingRight = true;
+    });
+    rightButton.addEventListener('pointerup', () => { this.playerShip.isMovingRight = false; });
+    rightButton.addEventListener('pointerleave', () => { this.playerShip.isMovingRight = false; });
+
+    shootButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.fireLaser();
+    });
+
+    // クイック数字ボタン（数字を直接タップして誘導レーザー発射）
+    const numberButtons = document.querySelectorAll('.num-btn');
+    numberButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!this.isGameActive) return;
+        const targetValue = parseInt(btn.dataset.val, 10);
+        this.fireGuidedLaser(targetValue);
+      });
+    });
+
+    // 音声トグル
+    const soundButton = document.getElementById('sound-btn');
+    const soundIcon = document.getElementById('sound-icon');
+    soundButton.addEventListener('click', () => {
+      const enabled = this.soundManager.toggleSound();
+      soundIcon.textContent = enabled ? '🔊' : '🔇';
+    });
+
+    // ヒントボタン
+    const hintButton = document.getElementById('hint-toggle-btn');
+    hintButton.addEventListener('click', () => this.showSakuranboHint());
+    document.getElementById('hint-close-btn').addEventListener('click', () => {
+      this.hintOverlay.style.display = 'none';
+    });
+
+    // タイトル画面モード選択
+    document.getElementById('mode-practice').addEventListener('click', () => this.startNewGame('practice'));
+    document.getElementById('mode-challenge10').addEventListener('click', () => this.startNewGame('challenge10'));
+    document.getElementById('mode-timeattack').addEventListener('click', () => this.startNewGame('timeattack'));
+
+    // 結果画面ボタン
+    document.getElementById('btn-replay').addEventListener('click', () => this.startNewGame(this.gameMode));
+    document.getElementById('btn-to-title').addEventListener('click', () => this.showTitleScreen());
+  }
+
+  // タイトル画面へ戻る
+  showTitleScreen() {
+    this.isGameActive = false;
+    if (this.timerIntervalId) clearInterval(this.timerIntervalId);
+    document.getElementById('title-screen').style.display = 'flex';
+    document.getElementById('result-screen').style.display = 'none';
+    this.hintOverlay.style.display = 'none';
+  }
+
+  // 新規ゲーム開始
+  startNewGame(selectedMode) {
+    this.soundManager.ensureAudioContext();
+    this.gameMode = selectedMode;
+    this.isGameActive = true;
+    this.score = 0;
+    this.questionCount = 0;
+    this.correctAnswersCount = 0;
+    this.scoreDisplay.textContent = '0';
+    this.projectiles = [];
+    this.enemyUfos = [];
+    this.visualParticles = [];
+
+    document.getElementById('title-screen').style.display = 'none';
+    document.getElementById('result-screen').style.display = 'none';
+    this.hintOverlay.style.display = 'none';
+
+    if (this.timerIntervalId) clearInterval(this.timerIntervalId);
+
+    if (selectedMode === 'practice') {
+      this.progressLabel.textContent = 'もんだい:';
+      this.progressDisplay.textContent = 'れんしゅう';
+    } else if (selectedMode === 'challenge10') {
+      this.progressLabel.textContent = 'もんだい:';
+      this.progressDisplay.textContent = `1/${this.totalQuestions}`;
+    } else if (selectedMode === 'timeattack') {
+      this.remainingSeconds = 30;
+      this.progressLabel.textContent = 'のこり:';
+      this.progressDisplay.textContent = `${this.remainingSeconds}びょう`;
+      this.timerIntervalId = setInterval(() => {
+        this.remainingSeconds--;
+        this.progressDisplay.textContent = `${this.remainingSeconds}びょう`;
+        if (this.remainingSeconds <= 0) {
+          clearInterval(this.timerIntervalId);
+          this.finishGame();
+        }
+      }, 1000);
+    }
+
+    this.setupNextQuestion();
+  }
+
+  // 次の問題を準備
+  setupNextQuestion() {
+    if (!this.isGameActive) return;
+
+    this.questionCount++;
+    if (this.gameMode === 'challenge10' && this.questionCount > this.totalQuestions) {
+      this.finishGame();
+      return;
+    }
+
+    if (this.gameMode === 'challenge10') {
+      this.progressDisplay.textContent = `${this.questionCount}/${this.totalQuestions}`;
+    }
+
+    this.currentQuestion = this.questionGenerator.generateQuestion(
+      this.currentQuestion ? this.currentQuestion.answer : null
+    );
+
+    // 問題カード更新
+    this.qFirst.textContent = this.currentQuestion.first;
+    this.qSecond.textContent = this.currentQuestion.second;
+    this.qAns.textContent = '？';
+
+    // UFO敵をスポーン
+    this.spawnEnemyUfos(this.currentQuestion.answer);
+  }
+
+  // UFO敵の生成配置
+  spawnEnemyUfos(correctAnswer) {
+    this.enemyUfos = [];
+    const targetNumbers = this.questionGenerator.generateTargets(correctAnswer, 3);
+    const count = targetNumbers.length;
+    const horizontalInterval = this.canvas.width / (count + 1);
+
+    const colorPalettes = [
+      { body: '#ff4757', dome: '#70a1ff' },
+      { body: '#2ed573', dome: '#fffa65' },
+      { body: '#ffa502', dome: '#54a0ff' }
+    ];
+
+    targetNumbers.forEach((numValue, idx) => {
+      const palette = colorPalettes[idx % colorPalettes.length];
+      this.enemyUfos.push({
+        x: horizontalInterval * (idx + 1),
+        y: 60 + Math.random() * 20,
+        baseTargetX: horizontalInterval * (idx + 1),
+        value: numValue,
+        isCorrect: (numValue === correctAnswer),
+        bodyColor: palette.body,
+        domeColor: palette.dome,
+        floatPhase: Math.random() * Math.PI * 2,
+        fallSpeed: this.gameMode === 'timeattack' ? 0.45 : 0.22,
+        isDestroyed: false
+      });
+    });
+  }
+
+  // 通常レーザー発射
+  fireLaser() {
+    if (!this.isGameActive) return;
+    this.projectiles.push({
+      x: this.playerShip.x,
+      y: this.playerShip.y - 18,
+      radius: 6,
+      speed: 13,
+      homingTarget: null
+    });
+    this.soundManager.playLaserSound();
+  }
+
+  // 数字指定ホーミングレーザー発射
+  fireGuidedLaser(targetNumber) {
+    const targetUfo = this.enemyUfos.find(ufo => !ufo.isDestroyed && ufo.value === targetNumber);
+    this.projectiles.push({
+      x: this.playerShip.x,
+      y: this.playerShip.y - 18,
+      radius: 7,
+      speed: 14,
+      homingTarget: targetUfo || null
+    });
+    this.soundManager.playLaserSound();
+  }
+
+  // さくらんぼ計算ヒントダイアログの表示
+  showSakuranboHint() {
+    if (!this.currentQuestion) return;
+    const q = this.currentQuestion;
+
+    this.hintFormulaLeft.textContent = q.first;
+    this.hintFormulaRight.textContent = q.second;
+    this.sakuranboLeftVal.textContent = q.neededForTen;
+    this.sakuranboRightVal.textContent = q.remainder;
+
+    this.hintStep1.innerHTML = `① <strong>${q.first}</strong> は あと <strong>${q.neededForTen}</strong> で <strong>10</strong> になるよ！`;
+    this.hintStep2.innerHTML = `② <strong>${q.second}</strong> を <strong>${q.neededForTen}</strong> と <strong>${q.remainder}</strong> に わけると…<br>10 と <strong>${q.remainder}</strong> で <strong>${q.answer}</strong>！`;
+
+    this.hintOverlay.style.display = 'block';
+  }
+
+  // トースト表示
+  displayToast(messageText, isSuccess = true) {
+    this.toastElement.textContent = messageText;
+    this.toastElement.style.color = isSuccess ? '#fffa65' : '#ff6b81';
+    this.toastElement.classList.add('show');
+    setTimeout(() => {
+      this.toastElement.classList.remove('show');
+    }, 700);
+  }
+
+  // 爆発パーティクル生成
+  triggerExplosion(posX, posY, particleColor = '#fffa65', count = 22) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const velocity = Math.random() * 5 + 2;
+      this.visualParticles.push({
+        x: posX,
+        y: posY,
+        vx: Math.cos(angle) * velocity,
+        vy: Math.sin(angle) * velocity,
+        size: Math.random() * 5 + 3,
+        color: particleColor,
+        opacity: 1.0,
+        decaySpeed: Math.random() * 0.03 + 0.02
+      });
+    }
+  }
+
+  // ゲーム終了処理
+  finishGame() {
+    this.isGameActive = false;
+    if (this.timerIntervalId) clearInterval(this.timerIntervalId);
+    this.soundManager.playClearFanfare();
+
+    const resultScreen = document.getElementById('result-screen');
+    const finalScore = document.getElementById('final-score');
+    const resultTitle = document.getElementById('result-title');
+    const resultMedal = document.getElementById('result-medal');
+    const resultDetail = document.getElementById('result-detail');
+
+    finalScore.textContent = this.score;
+
+    if (this.gameMode === 'challenge10') {
+      resultDetail.textContent = `せいかい: ${this.correctAnswersCount} / ${this.totalQuestions} もん`;
+      if (this.score >= 1000) {
+        resultMedal.textContent = '👑';
+        resultTitle.textContent = 'ひゃくてん まんてん！ すばらしい！';
+      } else if (this.score >= 700) {
+        resultMedal.textContent = '🥇';
+        resultTitle.textContent = 'たいへん よくできました！';
+      } else {
+        resultMedal.textContent = '🌟';
+        resultTitle.textContent = 'よくがんばったね！ つぎもファイト！';
+      }
+    } else if (this.gameMode === 'timeattack') {
+      resultDetail.textContent = `せいかいすう: ${this.correctAnswersCount} もん！`;
+      resultMedal.textContent = '🚀';
+      resultTitle.textContent = 'スピード チャンピオン！';
+    } else {
+      resultDetail.textContent = `せいかいすう: ${this.correctAnswersCount} もん たっせい！`;
+      resultMedal.textContent = '🌸';
+      resultTitle.textContent = 'れんしゅう おつかれさま！';
+    }
+
+    resultScreen.style.display = 'flex';
+  }
+
+  // レンダリングループ
+  renderLoop(timestamp) {
+    const deltaTime = (timestamp - this.previousFrameTime) / 1000;
+    this.previousFrameTime = timestamp;
+
+    this.updateGameState(deltaTime);
+    this.drawGameGraphics();
+
+    requestAnimationFrame((t) => this.renderLoop(t));
+  }
+
+  // 物理・座標の更新処理
+  updateGameState(deltaTime) {
+    // 星のスクロール
+    this.backgroundStars.forEach(star => {
+      star.y += star.fallSpeed;
+      if (star.y > this.canvas.height) {
+        star.y = 0;
+        star.x = Math.random() * this.canvas.width;
+      }
+    });
+
+    if (!this.isGameActive) return;
+
+    // 自機移動
+    if (this.playerShip.isMovingLeft) {
+      this.playerShip.x -= this.playerShip.speed;
+    }
+    if (this.playerShip.isMovingRight) {
+      this.playerShip.x += this.playerShip.speed;
+    }
+    this.playerShip.x = Math.max(28, Math.min(this.canvas.width - 28, this.playerShip.x));
+
+    // レーザー弾の移動
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const bullet = this.projectiles[i];
+
+      // 誘導対象がある場合
+      if (bullet.homingTarget && !bullet.homingTarget.isDestroyed) {
+        const deltaX = bullet.homingTarget.x - bullet.x;
+        const deltaY = bullet.homingTarget.y - bullet.y;
+        const distance = Math.hypot(deltaX, deltaY);
+        if (distance > 10) {
+          bullet.x += (deltaX / distance) * bullet.speed;
+          bullet.y += (deltaY / distance) * bullet.speed;
+        } else {
+          bullet.y -= bullet.speed;
+        }
+      } else {
+        bullet.y -= bullet.speed;
+      }
+
+      // 画面外除外
+      if (bullet.y < -20 || bullet.x < -20 || bullet.x > this.canvas.width + 20) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
+      // 敵との衝突判定
+      for (let j = 0; j < this.enemyUfos.length; j++) {
+        const ufo = this.enemyUfos[j];
+        if (ufo.isDestroyed) continue;
+
+        const collisionDist = Math.hypot(bullet.x - ufo.x, bullet.y - ufo.y);
+        if (collisionDist < 34) {
+          this.projectiles.splice(i, 1);
+          this.processUfoHit(ufo);
+          break;
+        }
+      }
+    }
+
+    // UFO敵の移動（ゆらゆら下降）
+    const currentTimeSec = performance.now() / 1000;
+    this.enemyUfos.forEach(ufo => {
+      if (ufo.isDestroyed) return;
+      ufo.y += ufo.fallSpeed;
+      ufo.x = ufo.baseTargetX + Math.sin(currentTimeSec * 2 + ufo.floatPhase) * 12;
+
+      // 画面下部に達したら上部へループ
+      if (ufo.y > this.canvas.height - 110) {
+        ufo.y = 55;
+      }
+    });
+
+    // パーティクルの更新
+    for (let i = this.visualParticles.length - 1; i >= 0; i--) {
+      const particle = this.visualParticles[i];
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.opacity -= particle.decaySpeed;
+      if (particle.opacity <= 0) {
+        this.visualParticles.splice(i, 1);
+      }
+    }
+  }
+
+  // UFO命中時の処理
+  processUfoHit(targetUfo) {
+    if (targetUfo.isCorrect) {
+      // 正解！
+      targetUfo.isDestroyed = true;
+      this.soundManager.playCorrectSound();
+      this.triggerExplosion(targetUfo.x, targetUfo.y, '#fffa65', 30);
+      this.triggerExplosion(targetUfo.x, targetUfo.y, '#ff4757', 18);
+
+      this.score += 100;
+      this.correctAnswersCount++;
+      this.scoreDisplay.textContent = this.score;
+
+      this.qAns.textContent = targetUfo.value;
+      this.displayToast('せいかい！ ★', true);
+
+      setTimeout(() => {
+        if (this.isGameActive) {
+          this.setupNextQuestion();
+        }
+      }, 700);
+    } else {
+      // 不正解
+      this.soundManager.playMissSound();
+      this.triggerExplosion(targetUfo.x, targetUfo.y, '#70a1ff', 12);
+      this.displayToast('ちがうよ！ 💡ヒントをみてね', false);
+
+      // 上に跳ね返す
+      targetUfo.y = Math.max(50, targetUfo.y - 35);
+
+      if (this.gameMode === 'practice') {
+        setTimeout(() => this.showSakuranboHint(), 300);
+      }
+    }
+  }
+
+  // 描画処理
+  drawGameGraphics() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // 背景星
+    this.backgroundStars.forEach(star => {
+      this.ctx.fillStyle = star.color;
+      this.ctx.beginPath();
+      this.ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+
+    // パーティクル描画
+    this.visualParticles.forEach(particle => {
+      this.ctx.save();
+      this.ctx.globalAlpha = Math.max(0, particle.opacity);
+      this.ctx.fillStyle = particle.color;
+      this.ctx.beginPath();
+      this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    });
+
+    // レーザー弾描画
+    this.projectiles.forEach(bullet => {
+      this.ctx.save();
+      this.ctx.fillStyle = '#fffa65';
+      this.ctx.shadowColor = '#fffa65';
+      this.ctx.shadowBlur = 8;
+      this.ctx.beginPath();
+      this.ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // レーザーの尾
+      this.ctx.strokeStyle = '#ff6b81';
+      this.ctx.lineWidth = 3;
+      this.ctx.beginPath();
+      this.ctx.moveTo(bullet.x, bullet.y);
+      this.ctx.lineTo(bullet.x, bullet.y + 14);
+      this.ctx.stroke();
+      this.ctx.restore();
+    });
+
+    // UFO敵描画
+    this.enemyUfos.forEach(ufo => {
+      if (ufo.isDestroyed) return;
+      this.renderUfoGraphic(ufo);
+    });
+
+    // プレイヤーロケット描画
+    if (this.isGameActive) {
+      this.renderPlayerShip(this.playerShip.x, this.playerShip.y);
+    }
+  }
+
+  // UFOグラフィック描画
+  renderUfoGraphic(ufo) {
+    this.ctx.save();
+    this.ctx.translate(ufo.x, ufo.y);
+
+    // ドーム（ガラス）
+    this.ctx.fillStyle = ufo.domeColor;
+    this.ctx.beginPath();
+    this.ctx.arc(0, -8, 20, Math.PI, 0);
+    this.ctx.fill();
+
+    // UFO円盤
+    this.ctx.fillStyle = ufo.bodyColor;
+    this.ctx.beginPath();
+    this.ctx.ellipse(0, 4, 30, 14, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    // ランプ
+    [-16, 0, 16].forEach((lampOffsetX) => {
+      this.ctx.fillStyle = '#fffa65';
+      this.ctx.beginPath();
+      this.ctx.arc(lampOffsetX, 6, 3, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+
+    // 数字ラベル
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.strokeStyle = '#0d0f28';
+    this.ctx.lineWidth = 4;
+    this.ctx.font = '900 24px "Hiragino Maru Gothic ProN", sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.strokeText(ufo.value, 0, -6);
+    this.ctx.fillText(ufo.value, 0, -6);
+
+    this.ctx.restore();
+  }
+
+  // プレイヤーロケット描画
+  renderPlayerShip(posX, posY) {
+    this.ctx.save();
+    this.ctx.translate(posX, posY);
+
+    // エンジン噴射炎
+    const flameHeight = 8 + Math.random() * 8;
+    this.ctx.fillStyle = '#ff4757';
+    this.ctx.beginPath();
+    this.ctx.moveTo(-10, 18);
+    this.ctx.lineTo(0, 18 + flameHeight);
+    this.ctx.lineTo(10, 18);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    this.ctx.fillStyle = '#fffa65';
+    this.ctx.beginPath();
+    this.ctx.moveTo(-5, 18);
+    this.ctx.lineTo(0, 18 + flameHeight * 0.6);
+    this.ctx.lineTo(5, 18);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // 翼
+    this.ctx.fillStyle = '#ff6b81';
+    this.ctx.beginPath();
+    this.ctx.moveTo(-22, 16);
+    this.ctx.lineTo(0, -10);
+    this.ctx.lineTo(22, 16);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // ロケット本体
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.beginPath();
+    this.ctx.ellipse(0, 0, 13, 22, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = '#2f3542';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    // 窓
+    this.ctx.fillStyle = '#1e90ff';
+    this.ctx.beginPath();
+    this.ctx.arc(0, -4, 6.5, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.strokeStyle = '#ffffff';
+    this.ctx.lineWidth = 1.5;
+    this.ctx.stroke();
+
+    this.ctx.restore();
+  }
+}
+
+// DOM読み込み完了時にゲーム初期化
+window.addEventListener('DOMContentLoaded', () => {
+  new ShootingGame();
+});
+</script>
+</body>
+</html>
